@@ -1,0 +1,14 @@
+<form class="languages go" id="lang_form" method="get" action="" data-no-csrf>
+  <label for="language">{{ _('Other languages') }}</label>
+  <select id="language" name="lang" dir="ltr">
+    {% for code, name in LANGUAGES -%}
+      <option value="{{ code }}"{% if code == LANG|lower %} selected{% endif %}>
+        {{ name }}
+      </option>
+    {%- endfor %}
+  </select>
+  {% for key, value in request.GET.items() %}
+    <input type="hidden" name="{{ key }}" value="{{ value }}">
+  {% endfor %}
+  <noscript><button type="submit">{{ _('Go') }}</button></noscript>
+</form>

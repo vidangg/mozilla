@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block user_login_include %}
+  {% with devhub_backlink="True" %}
+    {% include "user_login.html" %}
+  {% endwith %}
+{% endblock %}
+
+{% if addon %}
+  {% set default_body_class = "no-edit" if not check_addon_ownership(request.user, addon, allow_developer=True) else "" %}
+{% endif %}
+{% block bodyclass %}developer-hub {{ editable_body_class|default(default_body_class) }}{% endblock %}
+
+{# Don't show the amo header on devhub pages #}
+{% set hide_header = True %}
+
+{% block bodyattrs %}
+{% if addon %}data-default-locale="{{ addon.default_locale|lower }}"{% endif %}
+{% endblock %}
+
+{% block title %}{{ dev_page_title() }}{% endblock %}
+
+{% block extrahead %}
+  {{ vite_asset('css/devhub.less') }}
+{% endblock %}
+
+{% block site_header_title %}
+  {% include "devhub/nav.html" %}
+{% endblock %}
+
+{% block js %}
+  {{ vite_asset('js/devhub.js') }}
+{% endblock %}
+
+{% block footer_extras %}
+  <img class="footerlogo" src="{{ static('img/developers/hub-logo-footer.png') }}" alt="">
+{% endblock %}
+
+{% block site_notice %}
+  {% if switch_is_active('enable_dev_experience_survey') and user.is_authenticated and user.is_survey_eligible(survey_id=amo.DEV_EXP_SURVEY_ALCHEMER_ID) %}
+    <div id="dev-survey-banner" response-url="{{ url('devhub.survey_response', survey_id=amo.DEV_EXP_SURVEY_ALCHEMER_ID) }}">
+      <div>
+      {{_('Help us make things better!')}}
+        <a target="_blank" href="{{amo.SURVEY_LINK[amo.DEV_EXP_SURVEY_ALCHEMER_ID]}}" class="survey-link">{{_('Take our quick survey')}}</a> 🦊
+      </div>
+      <a href="#" class="survey-dismiss">
+        ✕
+      </a>
+    </div>
+  {% endif %}
+  {{ super() }}
+{% endblock %}

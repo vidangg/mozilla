@@ -1,0 +1,50 @@
+<tr>
+  <th>
+    {{ record.log.short|default }}
+  </th>
+  <td class="record-container">
+      <div>
+        <div>By {{ record.user|user_link }} on {{ record.created|datetime }}</div>
+        {% if record.details %}
+          {% if record.details.versions %}
+            {% set affected = record.details.versions|count %}
+            {% if affected > 1 or show_long_format_fallback %}
+              <details>
+                <summary>{{ affected }} version(s) affected</summary>
+                <ul>
+                  {% for version in record.details.versions[:MAX_VERSIONS_SHOWN_INLINE] %}
+                    <li>{{ version }}</li>
+                  {% endfor %}
+                  {% if affected > MAX_VERSIONS_SHOWN_INLINE %}
+                    <li>...</li>
+                  {% endif %}
+                </ul>
+              </details>
+            {% endif %}
+          {% endif %}
+          <ul>
+          {% for policy_text in record.details.policy_texts %}
+            <li class="light history-comment">{{ policy_text }}</li>
+          {% endfor %}
+          </ul>
+          {# <pre> rather than <div> so that white space is preserved on copy #}
+          <pre class="light history-comment">{{ record.details.comments }}</pre>
+          {% if record.details.reason %}
+            <pre class="light history-comment">Reason: {{ record.details.reason }}</pre>
+          {% endif %}
+        {% elif show_long_format_fallback %}
+          <pre class="light history-comment">{{ record.to_string('reviewer') }}</pre>
+        {% endif %}
+      </div>
+      {% if switch_is_active('enable-activity-log-attachments') %}
+          {% if record.attachmentlog %}
+            {% with attachment=record.attachmentlog.file %}
+            <div>
+              <a class="download-reply-attachment" href="{{ url('activity.attachment', record.pk) }}" download>Download Attachment</a> ({{attachment.size|filesizeformat}})
+            </div>
+            {% endwith %}
+          {% endif %}
+      {% endif %}
+  </td>
+  
+</tr>

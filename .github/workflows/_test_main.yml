@@ -1,0 +1,145 @@
+name: Test Docker Image (test_main only)
+
+run-name: |
+  ref: ${{ github.ref_name }} |
+  version: ${{ inputs.version }} |
+  digest: ${{ inputs.digest }} |
+  splits: ${{ inputs.splits }} |
+
+permissions: {}
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: The version of the image to run
+        type: string
+        required: false
+      digest:
+        description: The build digest of the image to run. Overrides version.
+        type: string
+        required: false
+      splits:
+        description: How many splits for test_main
+        type: number
+        required: false
+        default: 14
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The version of the image to run
+        type: string
+        required: true
+      digest:
+        description: The build digest of the image to run. Overrides version.
+        type: string
+        required: false
+      splits:
+        description: How many splits for test_main
+        type: number
+        required: false
+        default: 14
+
+concurrency:
+  group: test_main-${{ github.workflow }}-${{ github.event_name}}-${{ github.ref}}-${{ toJson(inputs) }}
+  cancel-in-progress: true
+
+env:
+  log_artifact: test_main_logs
+  log_file: report.json
+
+jobs:
+  test_config:
+    runs-on: ubuntu-latest
+
+    outputs:
+      matrix: ${{ steps.result.outputs.matrix }}
+      splits: ${{ steps.result.outputs.splits }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Calculate splits
+        id: result
+        shell: bash
+        env:
+          splits: ${{ inputs.splits }}
+        run: |
+          # the matrix group should be indexed from 1 to splits + 1
+          n=$((splits + 1))
+          matrix=$(jq -n -c --arg n "$n" '[range(1;($n|tonumber))]')
+
+          # validate that matrix is an array of numbers from 1 to splits + 1
+          if ! echo "$matrix" | jq empty; then
+            echo "matrix is not an array of numbers from 1 to splits + 1"
+            exit 1
+          fi
+
+          echo "splits=$splits" >> "$GITHUB_OUTPUT"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          cat "$GITHUB_OUTPUT"
+
+  test_main:
+    runs-on: ubuntu-latest
+    needs: [test_config]
+    strategy:
+      fail-fast: false
+      matrix:
+        group: ${{fromJson(needs.test_config.outputs.matrix)}}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Test (test_matrix)
+        uses: ./.github/actions/run-docker
+        with:
+          digest: ${{ inputs.digest }}
+          version: ${{ inputs.version }}
+          deps: development
+          run: |
+            split="--splits ${{ needs.test_config.outputs.splits }}"
+            group="--group ${{ matrix.group }}"
+            report="--report-log ${{ env.log_file}}"
+            make test_main ARGS="${split} ${group} ${report}"
+
+      - name: Upload logs
+        uses: actions/upload-artifact@v4
+        with:
+          path: ${{ env.log_file }}
+          name: ${{ env.log_artifact }}-${{ matrix.group }}
+          retention-days: 1
+          overwrite: true
+
+  test_log:
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [test_config, test_main]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ${{ env.log_artifact }}*
+
+      - name: Cat logs
+        shell: bash
+        run: |
+          for dir in $(find . -maxdepth 1 -name "${{ env.log_artifact }}*" -type d | sort -V); do
+            job=$(basename "$dir")
+            file="${dir}/${{ env.log_file }}"
+            if [ -f "$file" ]; then
+              jq \
+                -r \
+                --arg job "$job" \
+                'select(has("when") and .when == "teardown") | "[\($job)] \(.outcome) \(.nodeid)"' < "$file"
+            else
+              echo "$file: No such file or directory"
+            fi
+          done

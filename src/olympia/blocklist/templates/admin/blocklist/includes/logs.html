@@ -1,0 +1,36 @@
+<ul>
+    {% for log in logs %}
+      <li>
+        {% if log.details.url %}
+            <a href="{{ log.details.url }}">{{ log.created|date:"Y-m-d" }}</a>.
+        {% else %}
+            {{ log.created|date:"Y-m-d" }}.
+        {% endif %}
+        {{ log.log.short }} by {{ log.user.name }}:
+        {% if log.details %}{{ log.details.guid }}{% else %}{{ log.arguments.1 }}{% endif %}{% if 'min_version' in log.details %}
+            , versions {{ log.details.min_version }} - {{ log.details.max_version }}.
+        {% elif 'added_versions' in log.details %}
+          {# log.details.block_type was added for soft-blocks, if absent the block is a hard one #}
+        , versions {% if log.details.block_type == BlockType.SOFT_BLOCKED %}soft-{% else %}hard-{% endif %}blocked [{{ log.details.added_versions|join:', ' }}].
+        {% elif 'removed_versions' in log.details %}
+        , versions unblocked [{{ log.details.removed_versions|join:', ' }}].
+        {% else %}.
+        {% endif %}
+        <ul>
+            <li>{{ log.details.reason }}</li>
+        </ul>
+      </li>
+    {% endfor %}
+    {% if blocklistsubmission|default_if_none:False %}
+      <li>
+        {% url 'admin:blocklist_blocklistsubmission_change' blocklistsubmission.id as change_url%}
+        {{ blocklistsubmission.modified|date:"Y-m-d" }}.
+        <a href="{{ change_url }}">{{ blocklistsubmission.get_action_display }} submission pending</a>
+        <ul>
+          {% for property, changes in blocklistsubmission_changes.items %}
+          <li>{{ property }}: "{{ changes.0 }}" to "{{ changes.1 }}"</li>
+        {% endfor %}
+        </ul>
+      </li>
+    {% endif %}
+</ul>

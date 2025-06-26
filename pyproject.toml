@@ -1,0 +1,107 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+name = "olympia"
+version = "0.1.0"
+description = "This is https://addons.mozilla.org (AMO)"
+author = "The Mozilla Team"
+author_email = "amo-developers@mozilla.org"
+url = "https://addons.mozilla.org/"
+package_dir = {"" = "src"}
+packages = "find:"  # This tells setuptools to use find_packages() to discover packages
+include_package_data = true
+zip_safe = false
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: Mozilla Public License",
+    "Operating System :: POSIX",
+    "Programming Language :: Python",
+    "Framework :: Django",
+    "Topic :: Internet :: WWW/HTTP :: Browsers",
+    "Programming Language :: Python :: 3",
+]
+
+[tool.ruff]
+exclude = [
+    "deps",
+    "node_modules",
+    "docs",
+    "static",
+    ".git",
+    "*/migrations/*.py",
+]
+line-length = 88
+
+[tool.ruff.lint]
+ignore = []
+select = [
+    "B",  # flake8-bugbear
+    "E",  # pycodestyle errors
+    "F",  # pyflakes
+    "I",  # isort
+    "Q",  # flake8-quotes
+    "W",  # pycodestyle warnings
+    "TID251",  # banned imports
+]
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "single"
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+lines-after-imports = 2
+section-order = ["future", "standard-library", "django", "third-party", "first-party", "local-folder"]
+[tool.ruff.lint.isort.sections]
+"django" = ["django"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"settings".msg = "`settings` is a module at the root of the project. Did you mean from `django.conf import settings` instead?"
+
+[tool.ruff.format]
+quote-style = "single"
+line-ending = "lf"
+
+[tool.pytest.ini_options]
+addopts = "-vs --reuse-db --showlocals --tb=short"
+python_files = "test*.py"
+norecursedirs = [
+  "node_modules",
+  "locale",
+  "static",
+  "media",
+  "site-static",
+  "user-media",
+  "tmp",
+  "templates",
+  "fixtures",
+  "migrations",
+  ".*",
+  "*.egg",
+  "dist",
+  "cache",
+  "venv",
+  "__pycache__",
+]
+DJANGO_SETTINGS_MODULE = "settings_test"
+# Ignoring csp deprecation warnings, we have control over the module and
+# currently it warns for child-src which is deprecated in CSPv3 but we're still
+# on CSP 2 while CSP 3 is still in working draft (sept 2018)
+filterwarnings = [
+  "default",
+  "ignore:::csp.utils",
+  # Ignore ResourceWarning for now. It's a Python 3 thing :-/
+  "ignore::ResourceWarning",
+]
+markers = [
+  "es_tests: mark a test as an elasticsearch test.",
+  "needs_locales_compilation: mark a test as needing compiled locales to work.",
+  "allow_external_http_requests: mark a test to allow external http requests and disable responses.",
+  "internal_routes_allowed: mark a test as needing INTERNAL_ROUTES_ALLOWED=True.",
+]
+env = [
+    "ENV=test",
+]

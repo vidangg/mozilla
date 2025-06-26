@@ -1,0 +1,12 @@
+Hello,
+
+Thank you for your report about {{ name }}, at {{ target_url }}.
+
+This content was already assessed in a prior review, and any violations that were found have either been addressed, or are currently being resolved. Because our moderation team has already reviewed this content, your report will not be processed.
+
+Thank you for your attention.
+
+[{{ reference_id }}]
+--
+Mozilla Add-ons Team
+{{ SITE_URL }}

@@ -1,0 +1,68 @@
+{% extends "devhub/addons/submit/base.html" %}
+
+{% block title %}
+{{ dev_page_title(_('Submission Complete'), addon) }}
+{% endblock %}
+
+{% block primary %}
+{% set version_edit_url = url('devhub.versions.edit', addon.slug, uploaded_version.id) %}
+{% if uploaded_version.channel == amo.CHANNEL_LISTED %}
+  <h3>{{ _("Version Submitted") }}</h3>
+  {% if addon.type == amo.ADDON_STATICTHEME %}
+    <p>
+      {% if preview %}
+        <img src="{{ preview.image_url }}" title="{{ _('Preview of the version submitted') }}"
+          alt="[{{ _('Preview still being generated - come back later or refresh the page.') }}]">
+      {% endif %}
+    </p>
+    <p>
+      {{ _("You’re done! This version will be available after it passes review. "
+           "You will be notified when it is reviewed.") }}
+    </p>
+  {% else %}
+    <p>
+      {% trans site_domain=settings.DOMAIN %}
+        You’re done! ✨ You will receive a confirmation email when this version is published on {{ site_domain }}. Note that it may take up to 24 hours before publication occurs, or longer if your add-on is selected for manual review. If you do not see an email after 24 hours, please check your spam folder.
+      {% endtrans %}
+    </p>
+  {% endif %}
+  {% if submit_page == 'addon' and addon.type == amo.ADDON_STATICTHEME %}
+    <p>
+      {{ _("Your listing will be more successful by adding a detailed description. "
+           "Get your listing ready for publication:") }}
+    </p>
+  {% elif submit_page == 'addon'  %}
+    <p>
+      {% trans a_attrs='target="_blank" rel="noopener noreferrer" href="%s/documentation/develop/create-an-appealing-listing?utm_source=addons.mozilla.org&utm_medium=referral&utm_content=submission"'|format(settings.EXTENSION_WORKSHOP_URL)|safe %}
+        You can attract users to your extension by adding a detailed description and screenshots to your listing. Get help <a {{ a_attrs }}>creating an appealing listing</a> on Firefox Extension Workshop.
+      {% endtrans %}
+    </p>
+  {% endif %}
+  <p>
+    <a class="button" href="{{ addon.get_dev_url() }}">
+      {{ _("Manage Listing") }}</a>
+  </p>
+  {% if addon.type != amo.ADDON_STATICTHEME %}
+    <p>
+      {{ _("You can also edit this version to add version notes, or source code "
+           "if your submission includes minified, concatenated or otherwise machine-generated code.") }}
+    </p>
+    <p>
+      <a class="button" href="{{ version_edit_url }}">{{
+          _("Edit version {0}")|format_html(uploaded_version.version) }}</a>
+    </p>
+  {% endif %}
+{% else %}
+  {% include "devhub/includes/done_unlisted.html" %}
+{% endif %}
+{% if addon.type != amo.ADDON_STATICTHEME %}
+  <p> {{ _('As a reminder, your add-on is subject to manual review at any time.') }} </p>
+{% endif %}
+
+<p>
+  {% with link=url('devhub.themes') if addon.type == amo.ADDON_STATICTHEME else url('devhub.addons') %}
+    <a class="button" href="{{ link }}">{{ _("Go to My Submissions") }}</a>
+  {% endwith %}
+</p>
+
+{% endblock %}

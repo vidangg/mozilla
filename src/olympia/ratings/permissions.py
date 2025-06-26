@@ -1,0 +1,57 @@
+from rest_framework.permissions import BasePermission
+
+from olympia import amo
+from olympia.access import acl
+from olympia.users.utils import RestrictionChecker
+
+
+def user_can_delete_rating(request, rating):
+    """Return whether or not the request.user can delete a rating.
+
+    People who can delete ratings:
+      * The original rating author.
+      * Reviewers with Ratings:Moderate, if the rating has been flagged and
+        they are not an author of this add-on.
+      * Users in a group with "Users:Edit" or "Addons:Edit" privileges and
+        they are not an author of this add-on.
+    """
+    is_rating_author = (
+        request.user.is_authenticated and rating.user_id == request.user.id
+    )
+    is_addon_author = rating.addon.has_author(request.user)
+    is_moderator = (
+        acl.action_allowed_for(request.user, amo.permissions.RATINGS_MODERATE)
+        and rating.editorreview
+    )
+    can_edit_users_or_addons = acl.action_allowed_for(
+        request.user, amo.permissions.USERS_EDIT
+    ) or acl.action_allowed_for(request.user, amo.permissions.ADDONS_EDIT)
+
+    return is_rating_author or (
+        not is_addon_author and (is_moderator or can_edit_users_or_addons)
+    )
+
+
+class CanDeleteRatingPermission(BasePermission):
+    """A DRF permission class wrapping user_can_delete_rating()."""
+
+    def has_permission(self, request, view):
+        return request.user.is_authenticated
+
+    def has_object_permission(self, request, view, obj):
+        return user_can_delete_rating(request, obj)
+
+
+class CanCreateRatingPermission(BasePermission):
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        checker = RestrictionChecker(request=request)
+        if not checker.is_rating_allowed():
+            self.message = checker.get_error_message()
+            self.code = 'permission_denied_restriction'
+            return False
+        return True
+
+    def has_object_permission(self, request, view, obj):
+        return self.has_permission(request)

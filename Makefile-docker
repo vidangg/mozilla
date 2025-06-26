@@ -1,0 +1,204 @@
+export PYTHON_COMMAND=python3
+
+# As we're using user-local installs inside the docker-container we need
+# to be cautious about uprading pip and not confusing it with the
+# globally installed version. This will take `$PYTHONUSERBASE` and `$PIP_USER`
+# into account.
+# See https://github.com/pypa/pip/issues/7205
+export PIP_COMMAND=$(PYTHON_COMMAND) -m pip
+APP=src/olympia/
+
+# Build list of dependencies to install
+DEPS = pip prod
+# If we're running a development image, then we should install the development dependencies
+ifeq ($(OLYMPIA_DEPS), development)
+DEPS += dev
+endif
+
+.PHONY: help_redirect
+help_redirect:
+	@$(MAKE) help --no-print-directory
+
+.PHONY: check_debian_packages
+check_debian_packages: ## check the existence of multiple debian packages
+	./scripts/check_debian_packages.sh
+
+.PHONY: check_pip_packages
+check_pip_packages: ## check the existence of multiple python packages
+	@for dep in $(DEPS); do \
+		./scripts/check_pip_packages.sh $$dep.txt; \
+	done
+
+.PHONY: check_django
+check_django: ## check if the django app is configured properly
+	./manage.py check
+
+.PHONY: check
+check: check_debian_packages check_pip_packages check_django
+
+.PHONY: data_dump
+data_dump:
+	./manage.py data_dump $(ARGS)
+
+.PHONY: data_load
+data_load:
+	./manage.py data_load $(ARGS)
+
+.PHONY: update_assets
+update_assets: ## Update the static assets
+	$(HOME)/scripts/update_assets.py
+
+.PHONY: run_vite
+run_vite:
+	npm run $(NPM_ARGS) dev
+
+.PHONY: update_deps
+update_deps: ## Update the dependencies
+	$(HOME)/scripts/install_deps.py $(DEPS)
+
+# TOOD: remove this after we migrate addons-frontned to not depend on it.
+.PHONY: setup-ui-tests
+setup-ui-tests:
+	@echo "This is a deprecated target, please stop using it."
+
+.PHONY: lint
+lint: ## lint the code
+	ruff check .
+	ruff format --check .
+	npm run check
+	curlylint src/ --quiet
+
+lint-codestyle: lint
+
+.PHONY: docs_pre_build
+docs_pre_build:
+	./manage.py generate_model_diagrams
+
+.PHONY: docs
+docs: docs_pre_build ## build the documentation
+	$(MAKE) -C docs html SPHINXOPTS='-nW'
+
+.PHONY: djshell
+djshell: ## connect to django shell
+	$(PYTHON_COMMAND) ./manage.py shell_plus
+
+.PHONY: dbshell
+dbshell: ## connect to a database shell
+	$(PYTHON_COMMAND) ./manage.py dbshell
+
+.PHONY: initialize
+initialize: ## ensure database exists
+	@echo "Initializing data..."
+	@echo "args: $(ARGS)"
+	$(PYTHON_COMMAND) ./manage.py initialize $(ARGS)
+
+PYTEST_SRC := src/olympia/
+
+.PHONY: test_needs_locales_compilation
+test_needs_locales_compilation:
+	pytest $(PYTEST_SRC) \
+		-m 'needs_locales_compilation' \
+		$(ARGS)
+	npm run test tests/js/
+
+.PHONY: test_main
+test_main:
+	pytest $(PYTEST_SRC) \
+		-n auto \
+		-m 'not es_tests and not needs_locales_compilation and not internal_routes_allowed' \
+		$(ARGS)
+
+.PHONY: test_internal_routes_allowed
+test_internal_routes_allowed:
+# We need to change the setting in the file because we can't
+# override an env variable here, and the next command requires
+# `INTERNAL_ROUTES_ALLOWED` to be set to `True`.
+	sed -i 's/^INTERNAL_ROUTES_ALLOWED.*/INTERNAL_ROUTES_ALLOWED=True/' settings_test.py
+	pytest \
+		$(PYTEST_SRC) \
+		-m 'internal_routes_allowed' \
+		$(ARGS)
+
+.PHONY: test_es_tests
+test_es_tests:
+	pytest \
+		$(PYTEST_SRC) \
+		-m 'es_tests and not needs_locales_compilation' \
+		$(ARGS)
+
+.PHONY: test
+test: ## run the entire test suite
+	pytest \
+		$(PYTEST_SRC) \
+		$(ARGS)
+
+.PHONY: test_es
+test_es: ## run the ES tests
+	pytest \
+		$(PYTEST_SRC) \
+		-m es_tests \
+		$(ARGS)
+
+.PHONY: test_no_es
+test_no_es: ## run all but the ES tests
+	pytest \
+		$(PYTEST_SRC) \
+		-m "not es_tests" \
+		$(ARGS)
+
+.PHONY: test_force_db
+test_force_db: ## run the entire test suite with a new database
+	pytest \
+		$(PYTEST_SRC) \
+		--create-db \
+		$(ARGS)
+
+.PHONY: tdd
+tdd: ## run the entire test suite, but stop on the first error
+	pytest \
+		$(PYTEST_SRC) \
+		-x --pdb \
+		$(ARGS)
+
+.PHONY: test_failed
+test_failed: ## rerun the failed tests from the previous run
+	pytest \
+	$(PYTEST_SRC) \
+	--lf \
+	$(ARGS)
+
+.PHONY: run_js_tests
+run_js_tests: ## Run the JavaScript test suite (requires compiled/compressed assets).
+	npm run test
+
+.PHONY: watch_js_tests
+watch_js_tests: ## Run+watch the JavaScript test suite (requires compiled/compressed assets).
+	npm run test:watch
+
+.PHONY: format_js
+format_js: ## Autoformat our js and css files
+	npm run fix
+
+.PHONY: format_py
+format_py: ## Autoformat our python files.
+	ruff check --fix-only .
+	ruff format .
+
+.PHONY: ruff
+ruff: format_py
+
+.PHONY: format
+format: format_py format_js ## Autoformat our codebase.
+
+.PHONY: extract_locales
+extract_locales: ## extracts and merges translation strings
+	./scripts/run_l10n_extraction.sh
+
+.PHONE: compile_locales
+compile_locales: ## compiles translation strings
+	$(PIP_COMMAND) install --progress-bar=off --no-deps -r requirements/locale.txt
+	$(HOME)/scripts/compile_locales.py
+
+.PHONY: help_submake
+help_submake:
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile-docker | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'

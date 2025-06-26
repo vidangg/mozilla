@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="{{ LANG }}" dir="{{ DIR }}">
+  <head>
+    <meta charset="utf-8">
+      {% if not settings.ENGAGE_ROBOTS %}
+        <meta name="robots" content="noindex">
+      {% endif %}
+    {% block extrameta %}{% endblock %}
+    <title>{% block title %}{{ _('Mozilla Add-ons') }}{% endblock %}</title>
+
+    <link rel="shortcut icon" type="image/x-icon"
+          href="{{ static('img/favicon.ico') }}">
+
+    {% block rss_feed %}{% endblock %}
+
+    {# L10n: {0} is an application, like Firefox. #}
+    <link title="{{ _('{0} Add-ons')|format_html(amo.FIREFOX.pretty) }}"
+          rel="search" type="application/opensearchdescription+xml"
+          href="{{ url('amo.opensearch') }}" />
+
+    {% block site_css %}
+      {{ vite_asset('css/fonts.less') }}
+      {{ vite_asset('css/zamboni.less') }}
+      {{ vite_asset('css/footer.less') }}
+    {% endblock %}
+
+    {% block extrahead %}{% endblock %}
+
+    {% block restyle %}
+      {{ vite_asset('css/restyle.less') }}
+    {% endblock %}
+
+    <noscript>
+      {{ vite_asset('css/nojs.less') }}
+    </noscript>
+
+    {% if settings.DEV_MODE %}
+      {{ vite_hmr_client() }}
+    {% endif %}
+
+    {% if user.is_authenticated %}
+      <meta name="csrf" content="{{ csrf_token }}">
+    {% endif %}
+
+    {{ vite_asset('js/preload.js') }}
+  </head>
+  <body class="html-{{ DIR }} {{ amo.FIREFOX.short }} moz-header-slim {% block bodyclass %}{% endblock %} restyle"
+        data-app="{{ amo.FIREFOX.short }}"
+        data-appname="{{ amo.FIREFOX.pretty }}"
+        data-appid="{{ amo.FIREFOX.id }}"
+        data-anonymous="{{ (not user.is_authenticated)|json }}"
+        data-readonly="{{ settings.READ_ONLY|json }}"
+        {% block bodyattrs %}{% endblock %}>
+
+    <div id="main-wrapper">
+      {% block site_notice %}
+        {% set admin_message = get_config(amo.config_keys.SITE_NOTICE) %}
+        {% if admin_message or settings.READ_ONLY %}
+          <div id="site-notice">
+            {% if admin_message %}
+              <p>{{ admin_message|safe }}</p>
+            {% endif %}
+            {% if settings.READ_ONLY %}
+              <p>{{ _("Some features are temporarily disabled while we perform website maintenance. We'll be back to full capacity shortly.") }}</p>
+            {% endif %}
+          </div>
+        {% endif %}
+      {% endblock %}
+      <div class="section">
+        {% block site_header %}
+          <div class="header-bg">
+            <div class="amo-header-wrapper">
+              <div class="amo-header">
+                <nav id="aux-nav" role="navigation" class="menu-nav c">
+                  <ul>
+                    {% if not settings.READ_ONLY %}
+                      {% block user_login_include %}
+                        {% include "user_login.html" %}
+                      {% endblock %}
+                    {% endif %}
+                    {% block aux_nav %}
+                      <li class="nomenu">
+                        <a class="return" href="{{ url('home') }}">{{ _('Back to Add-ons') }}</a>
+                      </li>
+                    {% endblock aux_nav %}
+                  </ul>
+                </nav>
+                <div id="masthead">
+                  {% block site_header_title %}
+                  {% include "header_title.html" %}
+                  {% endblock %}
+                  {% block navbar %}{% endblock %}
+                  {% block site_stats %}{% endblock %}
+                </div>
+              </div>
+            </div> {# .header-bg #}
+          </div> {# .amo-header-wrapper #}
+        {% endblock site_header %}
+
+        {# Overridden in base_side_categories, which expands categories
+           on the side of the page. #}
+        {% block main_content %}
+          {# outer_content is for something you want above content on every page. #}
+          {% block outer_content %}{% include "messages.html" %}{% endblock %}
+          {% block content %}{% endblock %}
+        {% endblock %}
+      </div>
+      <div id="tooltip">
+        <span></span>
+      </div>
+      <div id="popup-staging">
+        {% block popups %}
+        {% endblock %}
+      </div>
+      {# js #}
+      {% block site_js %}
+        <script type="text/javascript" src="{{ static('js/i18n/%s.js'|format(LANG)) }}"></script>
+        {{ vite_asset('js/common.js') }}
+      {% endblock %}
+      {% block js %}{% endblock %}
+      {% block footer %}
+          <div id="footer"></div>
+          {% include 'photon-footer.html' %}
+      {% endblock %}
+    </div>
+  </body>
+</html>

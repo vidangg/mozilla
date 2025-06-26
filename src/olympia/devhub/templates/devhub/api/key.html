@@ -1,0 +1,55 @@
+{% extends "devhub/base.html" %}
+
+{% block title %}{{ dev_page_title(title) }}{% endblock %}
+
+{% block content %}
+<header>
+  <h1>{{ title }}</h1>
+</header>
+
+<section class="primary full">
+  <div class="island prettyform row">
+    <form method="post" class="item api-credentials" name="api-credentials-form">
+      {% csrf_token %}
+      {% if '__all__' in form.errors %}
+        <div class="text-danger">
+          {{ form.errors.__all__ }}
+        </div>
+      {% endif %}
+      <fieldset>
+        <legend>
+          {{ _('API Credentials') }}
+        </legend>
+        {% for field in form %}
+          <div class="row api-input key-input">
+              {% if field.help_text %}
+              <div>{{ field.help_text|format_html }}</div>
+              {% endif %}
+              <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+              {{ field }}
+              {% if field.errors %}
+                  <div class="text-danger">
+                      {{ field.errors }}
+                  </div>
+              {% endif %}
+          </div>
+        {% endfor %}
+      </fieldset>
+      <div class="listing-footer">
+        <p class="footer-submit">
+          {% for action in form.available_actions %}
+            <button
+              class="button prominent"
+              type="submit"
+              name="action"
+              value="{{ action }}"
+            >
+              {{ form.ACTION_CHOICES.for_value(action).display }}
+            </button>
+          {% endfor %}
+        </p>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock content %}

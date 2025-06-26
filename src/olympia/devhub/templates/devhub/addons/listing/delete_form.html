@@ -1,0 +1,35 @@
+{% from 'includes/forms.html' import optional %}
+{% set title = _('Delete Add-on') %}
+<form method="post" action="{{ addon.get_dev_url('delete') }}">
+  {% csrf_token %}
+  <h3>
+    {{ title }}
+  </h3>
+  {% if addon.is_soft_deleteable() %}
+    <p class="warning">
+      <b>
+          {% include 'devhub/addons/listing/_delete_warning.html' %}
+      </b>
+    </p>
+  {% endif %}
+  <p>
+    <label>
+      {{ _('Enter the following text to confirm your decision: {slug}')|format_html(slug=addon.slug) }}
+    </label>
+    <input class="full-width" type="text" name="slug" autocomplete="off"
+           placeholder="{{ addon.slug }}" pattern="{{ addon.slug }}" required>
+  </p>
+  <input type="hidden" name="addon_id" class="addon_id" value="{{ addon.id }}">
+  <p>
+    <label for="id_reason">
+      {{ _('Please tell us why you are deleting your add-on:') }}
+      {{ optional() -}}
+    </label>
+    <textarea name="reason" id="id_reason"></textarea>
+  </p>
+  <p>
+    <button class="delete-button" type="submit">{{ title }}</button>
+    {{ _('or') }} <a href="#" class="close cancel">{{ _('Cancel') }}</a>
+  </p>
+  <a href="#" class="close">{{ _('Close') }}</a>
+</form>

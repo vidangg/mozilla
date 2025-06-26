@@ -1,0 +1,145 @@
+<tr class="listing-header{% if version.needs_human_review %} needs-human-review{% elif version.needs_human_review_by_mad %} flagged-by-mad{%endif %}"
+    id="version-{{ version.version|to_dom_id }}"
+>
+  <th>
+    {% trans version = version.version, created = version.created|date, version_status = version.get_review_status_display() %}
+    Version {{ version }} &middot; {{ created }} <span class="light">&middot; {{ version_status }}</span>
+    {% endtrans %}
+
+    {% if version.autoapprovalsummary and version.autoapprovalsummary.confirmed %}
+    <span class="light">(Confirmed)</span>
+    {% endif %}
+
+    {% if version.pending_rejection %}
+    <span class="pending-rejection" title="{{ version.pending_rejection|datetime }}">&middot;
+      {% if latest_version_is_unreviewed_and_not_pending_rejection %}
+        Pending Rejection on review of new version
+      {% else %}
+        Scheduled for rejection in {{ version.pending_rejection|timeuntil }}
+      {% endif %}
+    </span>
+    {% endif %}
+
+    {% if version.is_blocked %}
+    <span class="blocked-version">{{ version.blockversion.get_block_type_display() }}</span>
+    {% endif %}
+  </th>
+  <td class="due_date">
+    {% if version.due_date %}Review due by {{ version.due_date|datetime }}{% endif %}
+  </td>
+</tr>
+<tr class="listing-body">
+  <td class="files">
+    {% if addon.type != amo.ADDON_STATICTHEME %}
+      {{ file_view(version) }}
+      <div class="version-adu" data-version-string="{{ version.version }}">
+        <h5>Average Daily Users:</h5>
+        <p class="version-adu-value downloads">&#x2014;</p>
+      </div>
+      {% if version.compatible_apps %}
+        <div class="compatibility"><h5>Compatibility:</h5>
+        <ul>
+          {% for app, compat in version.compatible_apps.items()|sort(attribute="0.short") %}
+          <li>
+            <div class="app-icon ed-sprite-{{ app.short }}" title="{{ app.pretty }}"></div>
+            {{ compat }}
+          </li>
+          {% endfor %}
+        </ul>
+        </div>
+      {% endif %}
+
+      {% if version.source %}
+          <div><h5>Additional sources:</h5></div>
+          <div>
+              {% if is_admin %}
+                  <a href="{{ url('downloads.source', version.pk) }}">Download files</a>
+              {% else %}
+                  The developer has provided source code.
+              {% endif %}
+          </div>
+      {% endif %}
+
+      <div class="maliciousness-score">
+        <h5>Maliciousness Score:</h5> {{ version.maliciousness_score|format_score }}
+        <span class="tip tooltip" title="The Maliciousness Score represents the likelihood of this version being malicious, based on the scanners findings.">?</span>
+        {% if version.needs_human_review_by_mad %}
+          <strong class="risk-medium">Flagged by MAD scanner</strong>
+        {% endif %}
+      </div>
+
+      <div class="scanners-results">
+      {% for result in version.scannerresults.all() %}
+        {% if result.has_matches %}
+          {% if loop.changed() %}  {# Only display header once #}
+            <h5>Scanners results:</h5>
+          {% endif %}
+          {{ format_matched_rules(result, display_scanner=True, display_data=True, limit_to=5) }}
+        {% endif %}
+      {% endfor %}
+      </div>
+    {% else %}
+      <ul>
+        <li class="file-info light">
+            <h5><a href="{{ version.file.get_url_path() }}" class="reviewers-install"
+              data-type="{{ amo.ADDON_SLUGS[addon.type] }}">Download</a></h5>
+            <div>
+              {{ version.file.get_review_status_display() }}
+            </div>
+        </li>
+      </ul>
+    {% endif %}
+  </td>
+  <td>
+    <table class="activity">
+      {% if version.release_notes %}
+      <tr>
+        <th>Version Notes</th>
+        <td class="activity_version">
+          <div class="history-notes">
+            {{ version.release_notes|nl2br }}
+          </div>
+        </td>
+      </tr>
+      {% endif %}
+      {% if version.approval_notes %}
+      <tr>
+        <th>Notes for Reviewers</th>
+        <td class="activity_approval">
+          <div class="history-notes">
+            {{ version.approval_notes|urlize(100)|nl2br }}
+          </div>
+        </td>
+      </tr>
+      {% endif %}
+      {% set records = version.all_activity %}
+      {% for record_version in records %}
+        {% set record = record_version.activity_log %}
+        {% include 'reviewers/includes/history.html' %}
+      {% endfor %}
+      {% if version.pk in auto_approval_info %}
+        <tr>
+          <th>Not Auto Approved Because </th>
+          <td class="auto_approval">
+            {% if auto_approval_info[version.pk] %}
+              <ul>
+              {% for info in auto_approval_info[version.pk] %}
+                <li>{{ info }}</li>
+              {% endfor %}
+              </ul>
+            {% else %}
+              Auto-Approval script has not run yet on this version.
+            {% endif %}
+          </td>
+        </tr>
+      {% endif %}
+      {% if not version.release_notes and not version.approval_notes and not records %}
+      <tr>
+        <td class="no-activity">
+          This version has not been reviewed.
+        </td>
+      </tr>
+      {% endif %}
+    </table>
+  </td>
+</tr>

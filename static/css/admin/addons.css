@@ -1,0 +1,12 @@
+#changelist .results ul {
+    margin: 0 0 .8em 0;
+    padding-left: 0;
+}
+
+#changelist .results li {
+    list-style-type: none;
+}
+
+.field-reviewer_links li {
+    white-space: nowrap;
+}

@@ -1,0 +1,201 @@
+from olympia import amo
+
+
+def match_rules(rules, app, action):
+    """
+    This will match rules found in Group.
+    """
+    for rule in rules.split(','):
+        rule_app, rule_action = rule.split(':')
+        if rule_app == '*' or rule_app == app:
+            if rule_action == '*' or rule_action == action or action == '%':
+                return True
+    return False
+
+
+def action_allowed_for(user, permission):
+    """
+    Determines if the user has permission to do a certain action.
+
+    `permission` is a tuple constant in constants.permissions.
+
+    Note: relies in user.groups_list, which is cached on the user instance the
+    first time it's accessed.
+    """
+    if user is None or not user.is_authenticated:
+        return False
+
+    assert permission in amo.permissions.PERMISSIONS_LIST  # constants only.
+    return any(
+        match_rules(group.rules, permission.app, permission.action)
+        for group in user.groups_list
+    )
+
+
+def experiments_submission_allowed(user, parsed_addon_data):
+    """Experiments can only be submitted by the people with the right
+    permission.
+
+    See bug 1220097.
+    """
+    return not parsed_addon_data.get('is_experiment', False) or action_allowed_for(
+        user, amo.permissions.EXPERIMENTS_SUBMIT
+    )
+
+
+def langpack_submission_allowed(user, parsed_addon_data):
+    """Language packs can only be submitted by people with the right
+    permission.
+
+    See https://github.com/mozilla/addons-server/issues/11788 and
+    https://github.com/mozilla/addons-server/issues/11793
+    """
+    return not parsed_addon_data.get('type') == amo.ADDON_LPAPP or action_allowed_for(
+        user, amo.permissions.LANGPACK_SUBMIT
+    )
+
+
+def reserved_guid_addon_submission_allowed(user, parsed_addon_data):
+    """Add-ons with a guid ending with reserved suffixes can only be submitted
+    by people with the right permission.
+    """
+    guid = parsed_addon_data.get('guid') or ''
+    return not guid.lower().endswith(amo.RESERVED_ADDON_GUIDS) or action_allowed_for(
+        user, amo.permissions.SYSTEM_ADDON_SUBMIT
+    )
+
+
+def mozilla_signed_extension_submission_allowed(user, parsed_addon_data):
+    """Add-ons already signed with mozilla internal certificate can only be
+    submitted by people with the right permission.
+    """
+    return not parsed_addon_data.get(
+        'is_mozilla_signed_extension'
+    ) or action_allowed_for(user, amo.permissions.SYSTEM_ADDON_SUBMIT)
+
+
+def check_addon_ownership(
+    user,
+    addon,
+    allow_developer=False,
+    allow_addons_edit_permission=True,
+    allow_mozilla_disabled_addon=False,
+):
+    """
+    Check that user is the owner of the add-on.
+
+    Will always return False for deleted add-ons.
+
+    By default, this function will:
+    - return False for mozilla disabled add-ons. Can be bypassed with
+      allow_mozilla_disabled_addon=True.
+    - return False if the author is just a developer and not an owner. Can be
+      bypassed with allow_developer=True.
+    - return False for non authors. Can be bypassed with
+      allow_addons_edit_permission=True and the user has the Addons:Edit
+      permission. This has precedence over all other checks.
+    """
+    if not user.is_authenticated:
+        return False
+    # Deleted addons can't be edited at all.
+    if addon.is_deleted:
+        return False
+    # Users with 'Addons:Edit' can do anything.
+    if allow_addons_edit_permission and action_allowed_for(
+        user, amo.permissions.ADDONS_EDIT
+    ):
+        return True
+    # Only admins can edit admin-disabled addons.
+    if addon.status == amo.STATUS_DISABLED and not allow_mozilla_disabled_addon:
+        return False
+    # Addon owners can do everything else.
+    roles = (amo.AUTHOR_ROLE_OWNER,)
+    if allow_developer:
+        roles += (amo.AUTHOR_ROLE_DEV,)
+
+    return addon.addonuser_set.filter(user=user, role__in=roles).exists()
+
+
+def is_listed_addons_reviewer(user, allow_content_reviewers=True):
+    permissions = [
+        amo.permissions.ADDONS_REVIEW,
+        amo.permissions.ADDONS_RECOMMENDED_REVIEW,
+    ]
+    if allow_content_reviewers:
+        permissions.append(amo.permissions.ADDONS_CONTENT_REVIEW)
+    allow_access = any(action_allowed_for(user, perm) for perm in permissions)
+    return allow_access
+
+
+def is_listed_addons_viewer_or_reviewer(user, allow_content_reviewers=True):
+    return action_allowed_for(
+        user, amo.permissions.REVIEWER_TOOLS_VIEW
+    ) or is_listed_addons_reviewer(user, allow_content_reviewers)
+
+
+def is_unlisted_addons_reviewer(user):
+    return action_allowed_for(user, amo.permissions.ADDONS_REVIEW_UNLISTED)
+
+
+def is_unlisted_addons_viewer_or_reviewer(user):
+    return action_allowed_for(
+        user, amo.permissions.REVIEWER_TOOLS_UNLISTED_VIEW
+    ) or is_unlisted_addons_reviewer(user)
+
+
+def is_static_theme_reviewer(user):
+    return action_allowed_for(user, amo.permissions.STATIC_THEMES_REVIEW)
+
+
+def is_reviewer(user, addon, allow_content_reviewers=True):
+    """Return True if the user is an addons reviewer, or a theme reviewer
+    and the addon is a theme.
+
+    If allow_content_reviewers is passed and False (defaults to True), then
+    having content review permission is not enough to be considered an addons
+    reviewer.
+    """
+    if addon.type == amo.ADDON_STATICTHEME:
+        return is_static_theme_reviewer(user)
+    return is_listed_addons_reviewer(
+        user, allow_content_reviewers=allow_content_reviewers
+    )
+
+
+def is_user_any_kind_of_reviewer(user, allow_viewers=False):
+    """More lax version of is_reviewer: does not check what kind of reviewer
+    the user is, and accepts unlisted reviewers, post reviewers, content
+    reviewers. If allow_viewers is passed and truthy, also allows users with
+    just reviewer tools view access.
+
+    Don't use on anything that would alter add-on data.
+
+    any_reviewer_required() decorator and AllowAnyKindOfReviewer DRF permission
+    use this function behind the scenes to guard views that don't change the
+    add-on but still need to be restricted to reviewers only.
+    """
+    permissions = [
+        amo.permissions.ADDONS_REVIEW,
+        amo.permissions.ADDONS_REVIEW_UNLISTED,
+        amo.permissions.ADDONS_CONTENT_REVIEW,
+        amo.permissions.ADDONS_RECOMMENDED_REVIEW,
+        amo.permissions.STATIC_THEMES_REVIEW,
+    ]
+    if allow_viewers:
+        permissions.extend(
+            [
+                amo.permissions.REVIEWER_TOOLS_VIEW,
+                amo.permissions.REVIEWER_TOOLS_UNLISTED_VIEW,
+            ]
+        )
+    allow_access = any(action_allowed_for(user, perm) for perm in permissions)
+    return allow_access
+
+
+def author_or_unlisted_viewer_or_reviewer(user, addon):
+    return is_unlisted_addons_viewer_or_reviewer(user) or check_addon_ownership(
+        user,
+        addon,
+        allow_addons_edit_permission=False,
+        allow_developer=True,
+    )

@@ -1,0 +1,25 @@
+<div class="file-info light">
+  <strong><a href="{{ file.get_absolute_url(attachment=True) }}" class="reviewers-install"
+      data-type="{{ amo.ADDON_SLUGS[addon.type] }}">Download file</a></strong>
+  &middot;
+  <a href="{{ url('devhub.file_validation', addon.slug, file.id) }}">Validation results</a>
+  &middot;
+  <a
+    class="assay"
+    href="{{ assay_url(addon.guid, version) }}"
+    title="Open this version in Visual Studio Code"
+    >
+      Open in VSC
+  </a>
+</div>
+<div>
+  {% if file.permissions %}
+    <div class="file-permissions"><h5>Permissions:</h5> {{ ', '.join(file.permissions) }}</div>
+  {% endif %}
+  {% if file.optional_permissions %}
+    <div class="file-permissions"><h5>Optional permissions:</h5> {{ ', '.join(file.optional_permissions) }}</div>
+  {% endif %}
+  {% if file.host_permissions %}
+    <div class="file-permissions"><h5>Host permissions:</h5> {{ ', '.join(file.host_permissions) }}</div>
+  {% endif %}
+</div>

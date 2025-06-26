@@ -1,0 +1,72 @@
+{% autoescape true %}
+{# svg_render_size is the end size of the image;
+    browser_width is the internal width of the svg, which could be different if
+    svg_render_size.height != 92. #}
+
+{% set svg_scale = svg_render_size.height // amo.THEME_PREVIEW_TOOLBAR_HEIGHT %}
+{% set browser_width = (svg_render_size.width // svg_scale)|round|int %}
+
+{% set additional_backgrounds_height = amo.THEME_PREVIEW_TOOLBAR_HEIGHT %}
+{% set preserve_aspect_ratio = '%s %s' % ('xMaxYMin', 'meet' if header_width|d(1000000) < browser_width else 'slice') %}
+
+<svg id="preview-svg-root" width="{{ svg_render_size.width }}" height="{{ svg_render_size.height }}" xmlns="http://www.w3.org/2000/svg"
+     version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink"
+     xmlns:svgjs="http://svgjs.com/svgjs" font-size="16px" font-family="Helvetica, Arial, sans-serif">
+    <defs>
+        {% for background in additional_backgrounds %}
+          {{ background.calculate_pattern_offsets(browser_width, additional_backgrounds_height) or '' }}
+          <pattern id="AdditionalBackground{{ loop.index }}"
+                   width="{{ background.pattern_width }}" height="{{ background.pattern_height }}"
+                   x="{{ background.pattern_x }}" y="{{ background.pattern_y }}" patternUnits="userSpaceOnUse">
+            <image width="{{ background.width }}" height="{{ background.height }}"
+                   xlink:href="{{ background.src }}"></image>
+          </pattern>
+        {% endfor %}
+    </defs>
+    <g transform="scale({{ svg_scale }})">
+        <rect width="{{ browser_width }}" height="{{ amo.THEME_PREVIEW_TOOLBAR_HEIGHT }}"
+              class="frame fill" fill="{{ frame|d(amo.THEME_FRAME_COLOR_DEFAULT) }}" data-fill="{{ amo.THEME_FRAME_COLOR_DEFAULT }}"></rect>
+        <image id="svg-header-img" width="{{ browser_width }}" height="{{ header_src_height|d(amo.THEME_PREVIEW_TOOLBAR_HEIGHT) }}" preserveAspectRatio="{{ preserve_aspect_ratio|d('xMaxYMin slice') }}"
+               xlink:href="{{ header_src|d }}"></image>
+        {% for background in additional_backgrounds %}
+            <rect width="100%" height="100%" fill="url(#AdditionalBackground{{ loop.revindex }})"></rect>
+        {% endfor %}
+
+        <rect class="toolbar fill" fill="{{ toolbar|d('rgba(255,255,255,0.6)') }}"
+            width="{{ browser_width }}" height="48" y="44"
+            data-fill="rgba(255,255,255,0.6)"/>
+        <rect id="svg-selected-tab" class="tab_selected toolbar fill" fill="{{ tab_selected|d(toolbar)|d('rgba(255,255,255,0.6)') }}"
+            width="166" height="34" x="28" y="5" rx="4"
+            data-fill="rgba(255,255,255,0.6)" stroke="transparent" stroke-width="1.5"/>
+        <rect class="tab_line stroke" stroke="{{ tab_line|d('rgba(0,0,0,0.25)') }}"
+            width="166" height="34" x="28" y="5" rx="4"
+            fill="transparent" data-stroke="rgba(0,0,0,0.25)" stroke-width="1.5"/>
+        <rect class="bookmark_text fill" fill="{{ bookmark_text|d(tab_background_text, true)|d }}"
+            width="121" height="4" x="51" y="20" rx="2"
+            data-fallback="tab_background_text" />
+        <rect class="tab_background_text fill" fill="{{ tab_background_text|d }}"
+            width="121" height="4" x="221" y="20" rx="2" />
+        <rect id="svg-url-field" class="toolbar_field fill" fill="{{ toolbar_field|d('rgba(255,255,255,1)') }}"
+            width="{{ browser_width - 192 }}" height="32" x="114" y="52" rx="4"
+            data-fill="rgba(255,255,255,1)"/>
+        <rect id="svg-url-field-text" class="toolbar_field_text fill" fill="{{ toolbar_field_text|d }}"
+            width="{{ browser_width - 378 }}" height="4" x="146" y="66" rx="2.2"/>
+        <circle class="toolbar_field_text stroke" stroke="{{ toolbar_field_text|d('rgba(0,0,0,1)') }}"
+            cx="130" cy="68" r="6.25"
+            data-stroke="rgba(0,0,0,1)" stroke-width="1.5" fill="transparent"/>
+        <circle class="bookmark_text stroke" stroke="{{ icons|d(bookmark_text)|d(tab_background_text)|d('rgba(0,0,0,1)') }}"
+            cx="24" cy="68" r="6.25"
+            data-stroke="rgba(0,0,0,1)" data-fallback="tab_background_text" stroke-width="1.5" fill="transparent" />
+        <circle class="bookmark_text stroke" stroke="{{ icons|d(bookmark_text)|d(tab_background_text)|d('rgba(0,0,0,1)') }}"
+            cx="60" cy="68" r="6.25"
+            data-stroke="rgba(0,0,0,1)" data-fallback="tab_background_text" stroke-width="1.5" fill="transparent" />
+        <g transform="translate({{ browser_width - 31 }} 61.75)"
+            class="bookmark_text fill" fill="{{ icons|d(bookmark_text)|d(tab_background_text)|d }}"
+            data-fallback="tab_background_text">
+          <rect width="14" height="1.5" rx="1.333"/>
+          <rect width="14" height="1.5" y="6" rx="1.333"/>
+          <rect width="14" height="1.5" y="12" rx="1.333"/>
+        </g>
+    </g>
+</svg>
+{% endautoescape %}

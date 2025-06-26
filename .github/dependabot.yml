@@ -1,0 +1,70 @@
+version: 2
+updates:
+- package-ecosystem: "docker"
+  directory: "/"
+  schedule:
+    interval: weekly
+  open-pull-requests-limit: 99
+- package-ecosystem: "docker-compose"
+  directory: "/"
+  schedule:
+    interval: weekly
+  open-pull-requests-limit: 99
+- package-ecosystem: "github-actions"
+  directory: "/"
+  schedule:
+    interval: weekly
+  open-pull-requests-limit: 99
+- package-ecosystem: "npm"
+  directory: "/"
+  schedule:
+    interval: daily
+  open-pull-requests-limit: 99
+- package-ecosystem: pip
+  directory: "/requirements"
+  schedule:
+    interval: daily
+  groups:
+      google:
+        patterns:
+          - "google-*"
+      celery:
+        patterns:
+          - celery
+          - billiard
+          - kombu
+  open-pull-requests-limit: 99
+  ignore:
+  - dependency-name: django
+    versions:
+    - ">= 5"
+  - dependency-name: billiard
+    versions:
+    - ">= 5"
+  - dependency-name: celery
+    versions:
+    - ">= 6"
+  - dependency-name: elasticsearch
+    versions:
+    - ">= 8"
+  - dependency-name: elasticsearch-dsl
+    versions:
+    - ">= 8"
+  - dependency-name: kombu
+    versions:
+    - ">= 6"
+  - dependency-name: vine
+    versions:
+    - ">= 6"
+  - dependency-name: idna
+    versions:
+    - ">= 4"
+  - dependency-name: amqp
+    versions:
+    - ">= 6"
+  - dependency-name: click
+    versions:
+    - ">= 9"
+  - dependency-name: protobuf
+    versions:
+    - ">= 5.0.0"

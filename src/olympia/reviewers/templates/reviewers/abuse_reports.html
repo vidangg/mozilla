@@ -1,0 +1,19 @@
+{% extends "reviewers/base.html" %}
+
+{% block title %}
+  Abuse Reports – {{ addon.name }} – Add-ons for Firefox
+{% endblock %}
+
+{% block content %}
+  <hgroup>
+    <h2>Abuse Reports for {{ addon.name }} and its developers ({{ reports.paginator.count|numberfmt }})</h2>
+  </hgroup>
+  {% with reports=None %}
+    {# Include the addon details box, but without the abuse reports as we show them below #}
+    {% include 'reviewers/addon_details_box.html' %}
+  {% endwith %}
+  <h3>Abuse Reports</h3>
+  {{ reports|paginator }}
+  {% include "reviewers/includes/abuse_reports_list.html" %}
+  {{ reports|paginator }}
+{% endblock %}

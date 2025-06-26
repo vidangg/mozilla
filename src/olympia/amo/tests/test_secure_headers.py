@@ -1,0 +1,10 @@
+from olympia.amo.tests import TestCase
+
+
+class TestSecurityHeaders(TestCase):
+    def test_for_security_headers(self):
+        """Test that security headers are set."""
+        response = self.client.get('/en-US/developers/')
+        assert response.status_code == 200
+        assert response['x-content-type-options'] == 'nosniff'
+        assert response['x-frame-options'] == 'DENY'

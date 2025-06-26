@@ -1,0 +1,8 @@
+{% load i18n %}{% blocktranslate %}Hello,{% endblocktranslate %}
+
+{% block content %}{% endblock %}
+
+[{{ reference_id }}]
+--
+{# L10n: This is an email. Whitespace matters #}{% blocktranslate %}Mozilla Add-ons Team{% endblocktranslate %}
+{{ SITE_URL }}
